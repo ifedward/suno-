@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Suno 批量下载助手",
+  "version": "0.1.0",
+  "description": "多链接和歌单导入，有限并发，跟踪实际下载状态。依赖 download.ai-suno.com。",
+  "permissions": [
+    "downloads",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://download.ai-suno.com/*"
+  ],
+  "action": {
+    "default_title": "打开 Suno 批量下载助手"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'"
+  }
+}
