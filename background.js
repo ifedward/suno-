@@ -1,7 +1,10 @@
-chrome.action.onClicked.addListener(async tab => {
- if(tab.id && /^https:\/\/(www\.)?suno\.com\//.test(tab.url||'')) await chrome.storage.local.set({sourceTab:tab.id});
- const url=chrome.runtime.getURL('index.html');
- const tabs=await chrome.tabs.query({});const existing=tabs.find(t=>t.url===url);
- if(existing){await chrome.tabs.update(existing.id,{active:true});await chrome.windows.update(existing.windowId,{focused:true});}
- else await chrome.tabs.create({url});
+// The toolbar click grants activeTab access to the Suno tab and opens a compact side panel.
+chrome.action.onClicked.addListener(tab => {
+  if (Number.isInteger(tab.id) && /^https:\/\/(www\.)?suno\.com\//.test(tab.url || '')) {
+    void chrome.storage.local.set({sourceTab: tab.id});
+  }
+  // Keep open() in the click handler: it requires an active user gesture (Chrome 116+).
+  if (Number.isInteger(tab.windowId)) {
+    void chrome.sidePanel.open({windowId: tab.windowId}).catch(console.error);
+  }
 });

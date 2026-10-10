@@ -1,1 +1,63 @@
-*{box-sizing:border-box}body{margin:0;background:#edf2f7;color:#17324b;font:15px/1.6 "Microsoft YaHei UI","Segoe UI",sans-serif}main{max-width:1160px;margin:40px auto;padding:0 24px}header{display:flex;gap:18px;align-items:center;margin-bottom:28px}.mark{font-size:38px;background:#dae8f2;width:70px;text-align:center;border-radius:18px;color:#185c85}h1{font-size:28px;line-height:1.3;margin:0}header p{margin:8px 0 0;color:#526c7f}section{background:#fff;padding:24px;margin-bottom:20px;border-radius:12px;border:1px solid #cddbe5}label{font-weight:600}textarea{display:block;width:100%;resize:vertical;font:inherit;padding:14px;border:1px solid #9bb2c3;border-radius:6px;margin:10px 0 16px;color:#17324b}button,select{font:inherit;border-radius:6px;border:1px solid #195f85;padding:9px 15px;background:#195f85;color:white;cursor:pointer}button.secondary{background:white;color:#195f85;border-color:#b4c6d3}button:disabled{opacity:.5;cursor:default}select{background:#fff;color:#17324b;padding:6px}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.hint,footer{color:#526c7f;font-size:13px;max-width:100ch}.hint{margin-bottom:0}.toolbar{display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap}h2{font-size:20px;margin:0}h2 span{color:#617c8e;font-weight:400;margin-left:6px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;text-align:left}th{font-size:13px;color:#526c7f;background:#f3f7fa}th,td{padding:13px 10px;border-bottom:1px solid #e1e8ee}td:first-child{max-width:430px;overflow-wrap:anywhere}td small{display:block;color:#6a7f8e;font-size:12px}.error{color:#aa3131}.complete{color:#236746}progress{width:100px;accent-color:#195f85}#notice{font-size:13px}#empty{padding:30px 0;text-align:center;color:#617c8e}button:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #e2a83c;outline-offset:3px}@media(max-width:650px){main{padding:0 12px;margin:20px auto}section{padding:16px}h1{font-size:23px}.mark{display:none}button{padding:8px 10px}}
+/* Suno batch side panel — readable 2K sizing, no remote assets */
+:root {
+  font: 15.5px/1.52 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  color: #21364b;
+  background: #f5f7fa;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 640px; min-width: 280px; padding: 12px; margin: auto; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 3px 13px; }
+.header-brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.header-brand > img { width: 42px; height: 42px; display: block; flex: 0 0 42px; }
+.header-brand > div { min-width: 0; }
+h1 { font-size: 19px; line-height: 1.28; margin: 0; font-weight: 720; letter-spacing: -0.025em; }
+header p { color: #657d90; font-size: 13px; margin: 3px 0 0; }
+.version { font-size: 12px; color: #8191a2; white-space: nowrap; }
+section { background: #fff; border: 1px solid #e0e7ee; border-radius: 11px; padding: 12px; margin-bottom: 11px; box-shadow: 0 1px 2px #19345008; }
+.section-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+h2 { font-size: 16px; font-weight: 700; margin: 0; }
+h2 span { color: #6c8499; font-weight: 500; }
+textarea { width: 100%; resize: vertical; min-height: 79px; max-height: 250px; border: 1px solid #c8d7e3; border-radius: 8px; padding: 10px; font: inherit; font-size: 14px; color: inherit; outline-offset: 2px; }
+.buttons { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+button { border: 1px solid #286b93; border-radius: 7px; background: #246e98; color: white; padding: 8px 10px; min-height: 35px; line-height: 1.25; font: inherit; font-size: 14px; font-weight: 550; cursor: pointer; }
+button.secondary { background: #fff; color: #226184; border-color: #cbdce7; }
+button.ghost { background: transparent; color: #58728a; border-color: transparent; }
+button:disabled { cursor: default; opacity: .43; }
+button:focus-visible, textarea:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid #dfa73a; outline-offset: 2px; }
+.small button { padding: 7px 9px; min-height: 34px; font-size: 13.5px; }
+.hint, .quiet, #notice, footer { font-size: 13px; color: #617a8d; }
+.hint { margin: 9px 0 0; }
+#notice { margin: 7px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+#notice:empty, #import-status:empty { display: none; }
+.concurrency { font-size: 13px; color: #61788b; white-space: nowrap; }
+select { font: inherit; font-size: 14px; border: 1px solid #cfdae5; border-radius: 6px; background: #fff; color: #21364b; padding: 4px 5px; }
+.song-list { max-height: 270px; overflow: auto; overscroll-behavior: contain; }
+.queue-list { max-height: 335px; }
+.song { display: flex; align-items: flex-start; gap: 8px; padding: 11px 2px; border-bottom: 1px solid #ebf0f4; }
+.song:last-child { border-bottom: 0; }
+.song input[type=checkbox] { margin: 3px 0 0; width: 17px; height: 17px; accent-color: #2477ad; flex-shrink: 0; }
+.song-details { flex: 1; min-width: 0; }
+.song-name { font-size: 14.5px; font-weight: 650; overflow-wrap: anywhere; line-height: 1.4; }
+.subtext { font-size: 12px; color: #74899a; margin-top: 3px; overflow-wrap: anywhere; }
+.status { color: #607d93; font-size: 12.5px; }
+.status.complete { color: #237d59; }
+.status.error { color: #b4433c; }
+.side-actions { display: flex; align-items: center; gap: 5px; flex-shrink: 0; max-width: 110px; }
+.side-actions button { min-height: 29px; padding: 5px 7px; font-size: 12.5px; }
+.title-edit { width: 100%; min-width: 0; border: 1px solid #b6cddd; border-radius: 6px; padding: 6px; font: inherit; font-size: 14px; }
+.added { color: #287e5c; font-size: 12px; white-space: nowrap; }
+.empty { font-size: 13px; color: #728b9f; text-align: center; margin: 10px 0 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+progress { display: block; width: 100%; max-width: 165px; height: 7px; margin-top: 6px; accent-color: #2974a2; }
+footer { padding: 0 4px 12px; line-height: 1.6; }
+@media (max-width: 355px) {
+  main { padding: 9px; }
+  section { padding: 10px; }
+  h1 { font-size: 18px; }
+  .header-brand { gap: 8px; }
+  .header-brand > img { width: 36px; height: 36px; flex-basis: 36px; }
+  .buttons { gap: 6px; }
+  button { padding: 7px 9px; }
+}

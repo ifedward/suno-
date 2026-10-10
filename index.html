@@ -1,1 +1,38 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Suno 批量下载助手</title><link rel="stylesheet" href="style.css"><main><header><span class="mark">♫</span><div><h1>Suno 批量下载助手</h1><p>把歌曲整理成队列，一次开始，逐首确认完成。</p></div></header><section class="import"><label for="links">歌曲链接、歌曲 ID 或歌单链接 · 每行一个</label><textarea id="links" rows="5" placeholder="https://suno.com/song/…&#10;https://suno.com/playlist/…"></textarea><div class="actions"><button id="import">加入队列</button><button id="collect" class="secondary">收集 Suno 页面歌曲</button><span id="notice" role="status"></span></div><p class="hint">收集的是页面当前加载的歌曲。回到 Suno 向下滚动，再收集即可追加，重复歌曲自动跳过。歌单解析服务可能只返回前 50 首。</p></section><section class="queue"><div class="toolbar"><h2>下载清单 <span id="count">0</span></h2><div class="actions"><label>同时下载 <select id="concurrency"><option>1</option><option selected>2</option><option>3</option></select> 首</label><button id="start">开始下载</button><button id="pause" class="secondary">暂停</button><button id="retry" class="secondary">重试失败</button><button id="clear" class="secondary">清除已完成</button></div></div><p id="summary" role="status"></p><div class="table-wrap"><table><thead><tr><th>歌曲</th><th>状态</th><th>进度</th><th>操作</th></tr></thead><tbody id="rows"></tbody></table></div><p id="empty">先粘贴链接，或从 Suno 页面收集歌曲。</p></section><footer>保存为 M4A，文件位于 Downloads / SunoBatch。解析服务：download.ai-suno.com。无需提供账号 Cookie。请保持此标签页打开；暂停不会取消已经开始的下载。</footer></main><script src="app.js" type="module"></script></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Suno 下载侧边栏</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header><div class="header-brand"><img src="icons/icon48.png" alt="" width="42" height="42"><div><h1>Suno 下载助手</h1><p>识别 · 选择 · 下载</p></div></div><span class="version">v0.2.1</span></header>
+  <section aria-labelledby="input-title">
+    <div class="section-title"><h2 id="input-title">识别歌曲</h2></div>
+    <label class="sr-only" for="links">歌曲、短分享或歌单链接，每行一个</label>
+    <textarea id="links" rows="3" placeholder="粘贴歌曲链接、ID 或歌单链接，每行一条"></textarea>
+    <div class="buttons"><button id="import">识别链接</button><button id="collect" class="secondary">收集当前页面</button><button id="stop-import" class="ghost" hidden>停止识别</button></div>
+    <p class="hint">页面收集只包含当前已加载歌曲；长列表可滚动后重复收集。</p>
+    <p id="notice" role="status" aria-live="polite"></p>
+  </section>
+  <section aria-labelledby="found-title">
+    <div class="section-title"><h2 id="found-title">已识别 <span id="found-count">0</span></h2><span id="selection-count" class="quiet">已选 0</span></div>
+    <div class="buttons small"><button id="select-all" class="secondary">全选</button><button id="select-none" class="secondary">取消全选</button><button id="add" disabled>加入队列</button><button id="clear-found" class="ghost">清空识别结果</button></div>
+    <p id="import-status" class="quiet" role="status"></p>
+    <div id="found-list" class="song-list" role="group" aria-label="已识别歌曲"></div>
+    <p id="found-empty" class="empty">先识别歌曲，再勾选加入队列。</p>
+  </section>
+  <section aria-labelledby="queue-title">
+    <div class="section-title"><h2 id="queue-title">下载队列 <span id="count">0</span></h2><label class="concurrency">并发 <select id="concurrency" aria-label="同时下载数量"><option>1</option><option selected>2</option><option>3</option></select></label></div>
+    <div class="buttons small"><button id="start">开始下载</button><button id="pause" class="secondary">暂停</button><button id="retry" class="secondary">重试失败</button><button id="clear" class="ghost">清除已完成</button></div>
+    <p id="summary" class="quiet" role="status"></p>
+    <div id="rows" class="song-list queue-list"></div>
+    <p id="empty" class="empty">加入歌曲后，在此查看排队与下载进度。</p>
+  </section>
+  <footer>默认保存：下载目录 / SunoBatch（M4A）。依赖第三方解析接口；仅下载自己拥有权利的歌曲。关闭侧栏后当前下载可继续，但不会派发新任务。</footer>
+</main>
+<script src="app.js" type="module"></script>
+</body>
+</html>
