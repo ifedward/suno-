@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "minimum_chrome_version": "116",
   "name": "Suno 批量下载助手",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "侧边栏识别、勾选并批量下载已授权的 Suno 歌曲；依赖第三方解析服务。",
   "permissions": [
     "downloads",

@@ -65,11 +65,11 @@ test('MV3 requires local scripts, sidePanel and minimal host access', () => {
   assert.doesNotMatch(html,/\sonclick\s*=/);
 });
 
-test('v0.2.2 retains local extension icons and readable sidebar typography', () => {
+test('v0.2.3 retains local extension icons and readable sidebar typography', () => {
   const manifest = JSON.parse(readFileSync(new URL('../manifest.json',import.meta.url)));
   const css = readFileSync(new URL('../style.css',import.meta.url),'utf8');
   const html = readFileSync(new URL('../index.html',import.meta.url),'utf8');
-  assert.equal(manifest.version,'0.2.2');
+  assert.equal(manifest.version,'0.2.3');
   for (const size of [16,32,48,128]) {
     const path = `icons/icon${size}.png`;
     assert.equal(manifest.icons[String(size)],path);

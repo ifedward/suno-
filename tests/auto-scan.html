@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><title>Suno 自动扫描浏览器检查</title>
+<body><h1>自动滚动与延迟加载检查</h1>
+<p>合成歌曲列表：8 首今天、2 首昨天。只保留当前屏幕的歌曲链接，第一首要第二遍才加载。</p>
+<button id="run">运行自动扫描检查</button><button id="stop" disabled>停止</button>
+<pre id="result" role="status">等待运行</pre>
+<iframe id="fixture" title="延迟加载歌曲列表" style="width:400px;height:320px;border:1px solid #ccc"></iframe>
+<script type="module" src="auto-scan.browser.js"></script></body></html>

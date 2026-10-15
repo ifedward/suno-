@@ -1,6 +1,7 @@
 import {parseInput, filename, cleanTitle, checkedSong, mediaURL, downloadState, isRetryable, retryDelay, eligible, CONCURRENCY, UUID} from './core.js';
 import {DATE_HEADING_PATTERN, localDateKey, previousDay, dateFromHeading, validDateKey, songDateLabel, groupSongs} from './dates.js';
 import {scanPageSongs} from './page-scan.js';
+import {runTodayScan, controlTodayScroll} from './auto-scan.js';
 
 const $ = id => document.getElementById(id);
 const API = 'https://download.ai-suno.com';
@@ -11,6 +12,8 @@ const selected = new Set();
 const active = new Set();
 let running = false;
 let importing = false;
+let scanning = false;
+let stopScan = null;
 let stopImport = null;
 let editingId = null;
 let checking = false;
@@ -108,7 +111,7 @@ function renderFound() {
   });
 }
 function selectDay(key, label) {
-  if (importing || editingId) return;
+  if (importing || scanning || editingId) return;
   selected.clear();
   for (const song of found) if (song.dateKey === key) selected.add(song.id);
   render();
@@ -126,17 +129,19 @@ function render() {
   const unknown = found.filter(s=>!validDateKey(s.dateKey)).length;
   $('select-today').textContent = `全选今天（${today}）`;
   $('select-yesterday').textContent = `全选昨天（${yesterday}）`;
-  $('select-today').disabled = importing || !!editingId || !today;
-  $('select-yesterday').disabled = importing || !!editingId || !yesterday;
+  $('select-today').disabled = importing || scanning || !!editingId || !today;
+  $('select-yesterday').disabled = importing || scanning || !!editingId || !yesterday;
   $('date-summary').textContent = found.length ? `今天 ${today} · 昨天 ${yesterday} · 其他日期 ${found.length-today-yesterday-unknown} · 日期未知 ${unknown}` : '';
   const qList = $('rows'); const qScroll = qList.scrollTop;
   qList.replaceChildren(...queue.map(queueRow)); qList.scrollTop = qScroll;
   $('summary').textContent = `${running?'进行中':'已暂停'} · 完成 ${queue.filter(x => x.state === 'complete').length} · 失败 ${queue.filter(x => x.state === 'error').length} · 等待 ${queue.filter(x => x.state === 'pending').length}`;
   $('start').disabled = running;
   $('pause').disabled = !running;
-  $('import').disabled = importing;
-  $('collect').disabled = importing;
-  $('stop-import').hidden = !importing;
+  $('import').disabled = importing || scanning;
+  $('collect').disabled = importing || scanning;
+  $('collect-today').disabled = importing || scanning || !!editingId;
+  $('stop-import').hidden = !importing && !scanning;
+  $('stop-import').textContent = scanning ? '停止扫描' : '停止识别';
   updateSelected();
 }
 
@@ -189,7 +194,7 @@ function receiveSong(s, sourceTitle, sourceDate) {
   return true;
 }
 async function importSources(lines) {
-  if (importing) return;
+  if (importing || scanning) return;
   importing = true;
   stopImport = new AbortController();
   let added = 0;
@@ -236,19 +241,95 @@ async function importSources(lines) {
   }
 }
 
-async function collect() {
-  try {
+async function sourceTabId() {
     const {sourceTab} = await chrome.storage.local.get('sourceTab');
     if (!Number.isInteger(sourceTab)) throw new Error('请先在 Suno 页面点击扩展图标。');
     const [tab] = await chrome.tabs.query({active:true, currentWindow:true});
     if (tab?.id !== sourceTab || !/^https:\/\/(www\.)?suno\.com\//.test(tab.url || ''))
       throw new Error('请切回已授权的 Suno 页面，再点击扩展图标。');
+    return sourceTab;
+}
+
+function receivePageSongs(songs, scannedAt, onlyToday = false) {
+  let added = 0, unresolved = 0;
+  for (const song of songs) {
+    const dateKey = dateFromHeading(song.dateLabel,scannedAt);
+    if (onlyToday && dateKey !== localDateKey(scannedAt)) continue;
+    const parsed = parseInput(song.url);
+    // The UUID and displayed title already identify a page song. Resolve audio only on download.
+    if (parsed?.kind === 'song' && UUID.test(parsed.value)) {
+      if (receiveSong({id:parsed.value,title:cleanTitle(song.title)},song.title,dateKey)) added++;
+    } else unresolved++;
+  }
+  return {added,unresolved};
+}
+
+async function collect() {
+  if (importing || scanning) return;
+  importing = true; render();
+  stopImport = new AbortController();
+  try {
+    const sourceTab = await sourceTabId();
     const scannedAt = new Date();
     const results = await chrome.scripting.executeScript({target:{tabId:sourceTab}, func:scanPageSongs, args:[DATE_HEADING_PATTERN.source]});
-    const songs = (results[0]?.result || []).map(s=>({...s,dateKey:dateFromHeading(s.dateLabel,scannedAt)}));
+    const songs = results[0]?.result || [];
     if (!songs.length) {notice('当前页面没有发现歌曲链接。请滚动页面加载更多歌曲后重试。'); return;}
-    await importSources(songs);
+    let {added} = receivePageSongs(songs,scannedAt);
+    const errors = [];
+    for (const song of songs) {
+      const source = parseInput(song.url);
+      if (stopImport.signal.aborted) break;
+      if (source?.kind !== 'song' || UUID.test(source.value)) continue;
+      try {
+        const result = await parseSource(source,stopImport.signal);
+        for (const item of result.songs) if (receiveSong(item,song.title,dateFromHeading(song.dateLabel,scannedAt))) added++;
+      } catch (error) {if (!stopImport.signal.aborted && errors.length<3) errors.push(error.message);}
+    }
+    await persist();
+    $('import-status').textContent = `${stopImport.signal.aborted?'收集已停止':'收集结束'} · 本次新增 ${added} 首 · 共 ${found.length} 首`;
+    notice(`已收集当前加载的歌曲。滑动后需再次点击“收集当前页面”，或使用“自动扫描今天”。${errors.length?' 部分短链接解析失败：'+errors.join('；'):''}`);
   } catch (e) {notice('收集失败：' + e.message);}
+  finally {importing = false;stopImport=null;render();}
+}
+
+async function collectToday() {
+  if (importing || scanning || editingId) return;
+  scanning = true; stopScan = new AbortController(); render();
+  const scannedAt = new Date();
+  const token = crypto.randomUUID();
+  const scanned = new Set();
+  try {
+    const tabId = await sourceTabId();
+    notice('正在自动滚动歌曲列表。请保持侧栏打开，扫描期间不要切换页面或翻页。');
+    const result = await runTodayScan({
+      signal:stopScan.signal,
+      scroll:async action => {
+        const results = await chrome.scripting.executeScript({target:{tabId},func:controlTodayScroll,args:[action,token]});
+        return results[0]?.result;
+      },
+      snapshot:async()=>{
+        if (localDateKey()!==localDateKey(scannedAt)) throw new Error('已跨过午夜，请刷新 Suno 页面后重新扫描。');
+        const results = await chrome.scripting.executeScript({target:{tabId},func:scanPageSongs,args:[DATE_HEADING_PATTERN.source]});
+        return results[0]?.result || [];
+      },
+      ingest:async songs => {
+        for (const song of songs) if (dateFromHeading(song.dateLabel,scannedAt)===localDateKey(scannedAt)) {
+          const parsed = parseInput(song.url);
+          if (parsed?.kind==='song' && UUID.test(parsed.value)) scanned.add(parsed.value);
+        }
+        receivePageSongs(songs,scannedAt,true);
+        await persist();render();return scanned.size;
+      },
+      onProgress:({pass,count})=>{ $('import-status').textContent=`自动扫描第 ${pass} 遍 · 今天已收集 ${count} 首`; }
+    });
+    const messages = {
+      boundary:'已到当前页今天分组末尾',stopped:'扫描已停止',
+      'no-today':'未找到可识别的 Today / 今天分组',limit:'达到扫描上限，可能尚未收集完整'
+    };
+    $('import-status').textContent = `${messages[result.reason]} · 本次今天收集 ${scanned.size} 首`;
+    notice(`${messages[result.reason]}。已收集结果保留，请点击“全选今天”再加入队列。若今天还有下一页，请翻页后再次扫描。`);
+  } catch (error) {notice('扫描未完成：'+error.message+' 已收集结果保留，可重新扫描。');}
+  finally {scanning = false;stopScan=null;await persist();render();}
 }
 
 function resetFailed(item) {
@@ -315,13 +396,14 @@ async function tick() {
 
 $('import').addEventListener('click', () => void importSources($('links').value.split(/\r?\n/)));
 $('collect').addEventListener('click', () => void collect());
-$('stop-import').addEventListener('click', () => stopImport?.abort(new DOMException('用户停止','AbortError')));
+$('collect-today').addEventListener('click', () => void collectToday());
+$('stop-import').addEventListener('click', () => {stopImport?.abort(new DOMException('用户停止','AbortError'));stopScan?.abort();});
 $('select-all').addEventListener('click', () => {for (const x of found) selected.add(x.id); render();});
 $('select-none').addEventListener('click', () => {selected.clear(); render();});
 $('select-today').addEventListener('click', () => selectDay(localDateKey(),'今天'));
 $('select-yesterday').addEventListener('click', () => selectDay(previousDay(),'昨天'));
 $('clear-found').addEventListener('click', () => {
-  if (importing) return notice('请先停止识别再清空。');
+  if (importing || scanning) return notice('请先停止识别或扫描再清空。');
   found = []; selected.clear(); void persist(); render();
 });
 $('add').addEventListener('click', () => {

@@ -18,9 +18,9 @@ class Node {
 async function until(predicate) {for(let i=0;i<100;i++){if(predicate())return;await new Promise(r=>setTimeout(r,2));}throw new Error('Timed out waiting for UI');}
 
 test('real UI flow: recognition is separate from queue, selected songs enqueue, downloads complete', async () => {
-  const orig = {document:globalThis.document, chrome:globalThis.chrome, fetch:globalThis.fetch, setInterval:globalThis.setInterval};
+  const orig = {document:globalThis.document, chrome:globalThis.chrome, fetch:globalThis.fetch, setInterval:globalThis.setInterval,setTimeout:globalThis.setTimeout};
   try {
-    const ids = ['links','import','collect','stop-import','select-all','select-none','select-today','select-yesterday','date-summary','clear-found','found-count','count','found-empty','empty','found-list','rows','summary','start','pause','retry','clear','concurrency','add','selection-count','import-status','notice'];
+    const ids = ['links','import','collect','collect-today','stop-import','select-all','select-none','select-today','select-yesterday','date-summary','clear-found','found-count','count','found-empty','empty','found-list','rows','summary','start','pause','retry','clear','concurrency','add','selection-count','import-status','notice'];
     const nodes = Object.fromEntries(ids.map(id => [id,new Node()]));
     nodes.concurrency.value = '2';
     globalThis.document = {getElementById:id => nodes[id], createElement:tag => new Node(tag)};
@@ -46,9 +46,13 @@ test('real UI flow: recognition is separate from queue, selected songs enqueue, 
     assert.equal(nodes.count.textContent,0,'Recognition must not enqueue automatically');
     assert.equal(nodes['selection-count'].textContent,'已选 1');
     await until(()=>nodes['import-status'].textContent.includes('识别结束'));
+    const workingFetch = globalThis.fetch;
+    globalThis.fetch = async()=>{throw new Error('Parser unavailable: page collection must still work');};
     nodes.collect.click();
     await until(()=>nodes['found-count'].textContent==2);
-    await until(()=>nodes['import-status'].textContent.includes('识别结束'));
+    await until(()=>!nodes.collect.disabled);
+    assert.match(nodes['import-status'].textContent,/收集结束/);
+    globalThis.fetch = workingFetch;
     // Let the user correct an API-provided generic song title before downloading.
     assert.equal(storage.found.find(s=>s.id===ID2).dateKey,localDateKey());
     assert.equal(nodes['select-today'].textContent,'全选今天（1）');
@@ -96,6 +100,34 @@ test('real UI flow: recognition is separate from queue, selected songs enqueue, 
     assert.equal(nodes['selection-count'].textContent,'已选 1');
     const checkedRows = nodes['found-list'].children.flatMap(g=>g.children.slice(1)).filter(r=>r.children[0].checked);
     assert.equal(checkedRows[0].children[1].children[1].textContent,ID1);
+    // The auto-scan UI accumulates virtual snapshots while the parser is unavailable.
+    const autoIDs=['11223344-1234-4abc-8abc-000000000001','11223344-1234-4abc-8abc-000000000002'];
+    const yesterdayID='11223344-1234-4abc-8abc-000000000003';
+    let position=0,restored=false;
+    globalThis.fetch=async()=>{throw new Error('Auto collection must not request parser');};
+    globalThis.setTimeout=(handler,ms,...args)=>orig.setTimeout(handler,ms===900?1:ms,...args);
+    globalThis.chrome.scripting.executeScript=async({func,args})=>{
+      if(func.name==='controlTodayScroll') {
+        const action=args[0];
+        if(action==='start'||action==='rewind')position=0;
+        if(action==='advance')position=1;
+        if(action==='restore')restored=true;
+        return [{result:{phase:position?'boundary':'moving',position,height:1000}}];
+      }
+      return [{result:[{url:`https://suno.com/song/${autoIDs[position]}`,title:`自动扫描 ${position}`,dateLabel:'Today'},
+        {url:`https://suno.com/song/${yesterdayID}`,title:'昨天不得混入',dateLabel:'Yesterday'}]}];
+    };
+    nodes['collect-today'].click();
+    assert.equal(nodes.collect.disabled,true);
+    assert.equal(nodes['stop-import'].textContent,'停止扫描');
+    await until(()=>!nodes['collect-today'].disabled);
+    assert.match(nodes['import-status'].textContent,/今天分组末尾/);
+    assert.equal(restored,true);
+    for(const id of autoIDs)assert.equal(storage.found.find(s=>s.id===id).dateKey,localDateKey());
+    assert.equal(storage.found.some(s=>s.id===yesterdayID),false);
+    nodes['select-today'].click();nodes.add.click();
+    await until(()=>storage.queue.length===4);
+    assert.deepEqual(storage.queue.slice(2).map(s=>s.id),autoIDs);
   } finally {Object.assign(globalThis,orig);}
 });
 
