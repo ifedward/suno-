@@ -1,4 +1,6 @@
 import {parseInput, filename, cleanTitle, checkedSong, mediaURL, downloadState, isRetryable, retryDelay, eligible, CONCURRENCY, UUID} from './core.js';
+import {DATE_HEADING_PATTERN, localDateKey, previousDay, dateFromHeading, validDateKey, songDateLabel, groupSongs} from './dates.js';
+import {scanPageSongs} from './page-scan.js';
 
 const $ = id => document.getElementById(id);
 const API = 'https://download.ai-suno.com';
@@ -98,13 +100,35 @@ function updateSelected() {
   $('selection-count').textContent = `已选 ${selected.size}`;
   $('add').disabled = !selected.size;
 }
+function renderFound() {
+  return groupSongs(found).map(([key,songs]) => {
+    const group = element('div','date-group');
+    group.append(element('h3','date-heading',`${songDateLabel(key)}（${songs.length} 首）`), ...songs.map(foundRow));
+    return group;
+  });
+}
+function selectDay(key, label) {
+  if (importing || editingId) return;
+  selected.clear();
+  for (const song of found) if (song.dateKey === key) selected.add(song.id);
+  render();
+  notice(`已仅选中${label}的 ${selected.size} 首歌曲，请点击“加入队列”。`);
+}
 function render() {
   $('found-count').textContent = found.length;
   $('count').textContent = queue.length;
   $('found-empty').hidden = found.length > 0;
   $('empty').hidden = queue.length > 0;
   const fList = $('found-list'); const fScroll = fList.scrollTop;
-  if (!editingId) { fList.replaceChildren(...found.map(foundRow)); fList.scrollTop = fScroll; }
+  if (!editingId) { fList.replaceChildren(...renderFound()); fList.scrollTop = fScroll; }
+  const today = found.filter(s=>s.dateKey===localDateKey()).length;
+  const yesterday = found.filter(s=>s.dateKey===previousDay()).length;
+  const unknown = found.filter(s=>!validDateKey(s.dateKey)).length;
+  $('select-today').textContent = `全选今天（${today}）`;
+  $('select-yesterday').textContent = `全选昨天（${yesterday}）`;
+  $('select-today').disabled = importing || !!editingId || !today;
+  $('select-yesterday').disabled = importing || !!editingId || !yesterday;
+  $('date-summary').textContent = found.length ? `今天 ${today} · 昨天 ${yesterday} · 其他日期 ${found.length-today-yesterday-unknown} · 日期未知 ${unknown}` : '';
   const qList = $('rows'); const qScroll = qList.scrollTop;
   qList.replaceChildren(...queue.map(queueRow)); qList.scrollTop = qScroll;
   $('summary').textContent = `${running?'进行中':'已暂停'} · 完成 ${queue.filter(x => x.state === 'complete').length} · 失败 ${queue.filter(x => x.state === 'error').length} · 等待 ${queue.filter(x => x.state === 'pending').length}`;
@@ -150,16 +174,17 @@ async function parseSource(source, signal) {
   const data = await request('/api/song?id=' + encodeURIComponent(source.value), signal);
   return {songs:[checkedSong(data.song)], total:1};
 }
-function receiveSong(s, sourceTitle) {
+function receiveSong(s, sourceTitle, sourceDate) {
   const title = sourceTitle ? cleanTitle(sourceTitle) : s.title;
   const existing = found.find(x => x.id === s.id);
   if (existing) {
+    if (validDateKey(sourceDate)) existing.dateKey = sourceDate;
     // The Suno page's displayed title is preferred to the third-party title.
     if (sourceTitle && !['page','manual'].includes(existing.titleSource)) {existing.title = title; existing.titleSource = 'page';
       const queued = queue.find(q => q.id === s.id); if (queued && ['pending','error'].includes(queued.state)) queued.title = title;}
     return false;
   }
-  found.push({id:s.id, title, titleSource:sourceTitle?'page':'api'});
+  found.push({id:s.id, title, titleSource:sourceTitle?'page':'api', dateKey:validDateKey(sourceDate)});
   selected.add(s.id);
   return true;
 }
@@ -178,7 +203,8 @@ async function importSources(lines) {
     const parsed = parseInput(line);
     if (!parsed) {if (errors.length < 6) errors.push('输入无效：' + line.slice(0,60)); continue;}
     const key = parsed.kind + ':' + parsed.value;
-    if (!sources.has(key)) sources.set(key, {...parsed, uiTitle:typeof input === 'string'?'':input.title || ''});
+    if (!sources.has(key)) sources.set(key, {...parsed, uiTitle:typeof input === 'string'?'':input.title || '',
+      dateKey:typeof input === 'string'?'':validDateKey(input.dateKey)});
   }
   render();
   try {
@@ -187,7 +213,7 @@ async function importSources(lines) {
       $('import-status').textContent = `识别中 ${processed + 1}/${sources.size} · 新增 ${added} 首`;
       try {
         const result = await parseSource(source, stopImport.signal);
-        for (const s of result.songs) if (receiveSong(s,source.kind==='song'?source.uiTitle:'')) added++;
+        for (const s of result.songs) if (receiveSong(s,source.kind==='song'?source.uiTitle:'',source.kind==='song'?source.dateKey:'')) added++;
         if (result.total > result.songs.length) truncated++;
       } catch (error) {
         if (stopImport.signal.aborted) break;
@@ -217,23 +243,9 @@ async function collect() {
     const [tab] = await chrome.tabs.query({active:true, currentWindow:true});
     if (tab?.id !== sourceTab || !/^https:\/\/(www\.)?suno\.com\//.test(tab.url || ''))
       throw new Error('请切回已授权的 Suno 页面，再点击扩展图标。');
-    const results = await chrome.scripting.executeScript({target:{tabId:sourceTab}, func:() => {
-      const map = new Map();
-      const titleOf = a => {
-        const wrapper = a.closest('article, li, [data-testid*="song"], [class*="song-card"]');
-        const raw = wrapper?.querySelector('[data-testid*="title"], [class*="title"]')?.textContent ||
-          a.getAttribute('title') || a.getAttribute('aria-label') || a.textContent || '';
-        const title = raw.replace(/\s+/g, ' ').trim();
-        return title && title.length <= 160 && !/^(play|pause|播放|暂停|song)$/i.test(title) ? title : '';
-      };
-      for (const a of document.querySelectorAll('a[href*="/song/"], a[href*="/s/"]')) {
-        const url = a.href;
-        if (!map.has(url)) map.set(url, {url, title:titleOf(a)});
-        else if (!map.get(url).title) map.get(url).title = titleOf(a);
-      }
-      return [...map.values()];
-    }});
-    const songs = results[0]?.result || [];
+    const scannedAt = new Date();
+    const results = await chrome.scripting.executeScript({target:{tabId:sourceTab}, func:scanPageSongs, args:[DATE_HEADING_PATTERN.source]});
+    const songs = (results[0]?.result || []).map(s=>({...s,dateKey:dateFromHeading(s.dateLabel,scannedAt)}));
     if (!songs.length) {notice('当前页面没有发现歌曲链接。请滚动页面加载更多歌曲后重试。'); return;}
     await importSources(songs);
   } catch (e) {notice('收集失败：' + e.message);}
@@ -306,6 +318,8 @@ $('collect').addEventListener('click', () => void collect());
 $('stop-import').addEventListener('click', () => stopImport?.abort(new DOMException('用户停止','AbortError')));
 $('select-all').addEventListener('click', () => {for (const x of found) selected.add(x.id); render();});
 $('select-none').addEventListener('click', () => {selected.clear(); render();});
+$('select-today').addEventListener('click', () => selectDay(localDateKey(),'今天'));
+$('select-yesterday').addEventListener('click', () => selectDay(previousDay(),'昨天'));
 $('clear-found').addEventListener('click', () => {
   if (importing) return notice('请先停止识别再清空。');
   found = []; selected.clear(); void persist(); render();
@@ -334,6 +348,7 @@ try {
   const stored = await chrome.storage.local.get(['queue','found','concurrency']);
   queue = Array.isArray(stored.queue) ? stored.queue.filter(s => UUID.test(s?.id) && typeof s.title === 'string') : [];
   found = Array.isArray(stored.found) ? stored.found.filter(s => UUID.test(s?.id) && typeof s.title === 'string') : [];
+  for (const song of found) song.dateKey = validDateKey(song.dateKey);
   for (const item of queue) {
     item.title = cleanTitle(item.title);
     if (item.state === 'resolving') item.state = Number.isInteger(item.downloadId) ? 'downloading' : 'pending';
@@ -346,3 +361,4 @@ try {
   render();
   setInterval(() => void tick(), 1200);
 } catch (e) {notice('无法恢复下载清单：' + e.message);}
+

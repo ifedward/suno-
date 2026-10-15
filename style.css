@@ -35,6 +35,12 @@ button:focus-visible, textarea:focus-visible, select:focus-visible, input:focus-
 select { font: inherit; font-size: 14px; border: 1px solid #cfdae5; border-radius: 6px; background: #fff; color: #21364b; padding: 4px 5px; }
 .song-list { max-height: 270px; overflow: auto; overscroll-behavior: contain; }
 .queue-list { max-height: 335px; }
+.date-actions { margin-top: 0; }
+.date-heading { margin: 0; padding: 9px 2px 6px; font-size: 13.5px; color: #36566e; font-weight: 650; }
+.date-group + .date-group { margin-top: 9px; border-top: 1px solid #dce6ee; }
+#date-summary { margin: 8px 0; color: #526c80; font-variant-numeric: tabular-nums; }
+#date-summary:empty { display: none; }
+.date-actions button.secondary:hover:not(:disabled) { background: #edf5fa; border-color: #8cb0c7; }
 .song { display: flex; align-items: flex-start; gap: 8px; padding: 11px 2px; border-bottom: 1px solid #ebf0f4; }
 .song:last-child { border-bottom: 0; }
 .song input[type=checkbox] { margin: 3px 0 0; width: 17px; height: 17px; accent-color: #2477ad; flex-shrink: 0; }
@@ -61,3 +67,4 @@ footer { padding: 0 4px 12px; line-height: 1.6; }
   .buttons { gap: 6px; }
   button { padding: 7px 9px; }
 }
+
