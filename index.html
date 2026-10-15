@@ -8,17 +8,20 @@
 </head>
 <body>
 <main>
-  <header><div class="header-brand"><img src="icons/icon48.png" alt="" width="42" height="42"><div><h1>Suno 下载助手</h1><p>识别 · 选择 · 下载</p></div></div><span class="version">v0.2.1</span></header>
+  <header><div class="header-brand"><img src="icons/icon48.png" alt="" width="42" height="42"><div><h1>Suno 下载助手</h1><p>识别 · 选择 · 下载</p></div></div><span class="version">v0.2.3</span></header>
   <section aria-labelledby="input-title">
     <div class="section-title"><h2 id="input-title">识别歌曲</h2></div>
     <label class="sr-only" for="links">歌曲、短分享或歌单链接，每行一个</label>
     <textarea id="links" rows="3" placeholder="粘贴歌曲链接、ID 或歌单链接，每行一条"></textarea>
-    <div class="buttons"><button id="import">识别链接</button><button id="collect" class="secondary">收集当前页面</button><button id="stop-import" class="ghost" hidden>停止识别</button></div>
-    <p class="hint">页面收集只包含当前已加载歌曲；长列表可滚动后重复收集。</p>
+    <div class="buttons"><button id="collect-today">自动扫描今天</button><button id="collect" class="secondary">收集当前页面</button><button id="import" class="secondary">识别链接</button><button id="stop-import" class="ghost" hidden>停止识别</button></div>
+    <p class="hint">自动扫描会滚动当前页歌曲列表，分次收集今天的歌曲；可随时停止。其他日期可手动滚动后再次收集。</p>
     <p id="notice" role="status" aria-live="polite"></p>
   </section>
   <section aria-labelledby="found-title">
     <div class="section-title"><h2 id="found-title">已识别 <span id="found-count">0</span></h2><span id="selection-count" class="quiet">已选 0</span></div>
+    <div class="buttons small date-actions"><button id="select-today" class="secondary" disabled>全选今天（0）</button><button id="select-yesterday" class="secondary" disabled>全选昨天（0）</button></div>
+    <p class="hint">按日期全选会替换当前选择，然后点击“加入队列”。</p>
+    <p id="date-summary" class="quiet" role="status" aria-live="polite"></p>
     <div class="buttons small"><button id="select-all" class="secondary">全选</button><button id="select-none" class="secondary">取消全选</button><button id="add" disabled>加入队列</button><button id="clear-found" class="ghost">清空识别结果</button></div>
     <p id="import-status" class="quiet" role="status"></p>
     <div id="found-list" class="song-list" role="group" aria-label="已识别歌曲"></div>
@@ -36,3 +39,4 @@
 <script src="app.js" type="module"></script>
 </body>
 </html>
+

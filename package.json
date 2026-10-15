@@ -1,10 +1,11 @@
 {
   "name": "suno-batch-sidebar",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.3",
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "check": "node --check app.js && node --check background.js && node --check core.js && node --test"
+    "check": "node --check app.js && node --check background.js && node --check core.js && node --check dates.js && node --check page-scan.js && node --check auto-scan.js && node --test"
   }
 }
+
